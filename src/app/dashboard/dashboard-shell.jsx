@@ -14,9 +14,8 @@ import {
   LayoutDashboard,
   LogOut,
   Building2,
-  ChevronDown,
 } from 'lucide-react';
-import { NAV_ITEMS, LIVE_STATUS_CONFIG } from '@/lib/constants';
+import { NAV_ITEMS } from '@/lib/constants';
 import { logoutAction } from '@/actions/auth-actions';
 
 // ── Session Context ──
@@ -113,9 +112,8 @@ export function DashboardShell({ session, children }) {
               </span>
             </div>
 
-            {/* Right: Live Status + Avatar */}
+            {/* Right: Avatar */}
             <div className="flex items-center gap-3">
-              <LiveStatusDropdown userId={session.userId} />
               <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-medium text-zinc-300">
                 {session.name
                   .split(' ')
@@ -162,61 +160,3 @@ export function DashboardShell({ session, children }) {
   );
 }
 
-// ── Live Status Dropdown ──
-function LiveStatusDropdown({ userId }) {
-  const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState('working');
-
-  const current = LIVE_STATUS_CONFIG[status];
-  const statuses = Object.entries(LIVE_STATUS_CONFIG);
-
-  function handleSelect(key) {
-    setStatus(key);
-    setOpen(false);
-    // Fire-and-forget status update
-    import('@/lib/api').then(({ apiUpdateUser }) => {
-      apiUpdateUser({ userId, liveStatus: key });
-    });
-  }
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-sm text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-colors duration-150"
-      >
-        <span>{current.emoji}</span>
-        <span className="hidden sm:inline text-xs">{current.label}</span>
-        <ChevronDown className="w-3 h-3" />
-      </button>
-
-      {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-          />
-
-          {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-1 w-40 bg-[#111113] border border-zinc-800 rounded-lg py-1 z-50">
-            {statuses.map(([key, config]) => (
-              <button
-                key={key}
-                onClick={() => handleSelect(key)}
-                className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors duration-150 ${
-                  key === status
-                    ? 'text-white bg-white/5'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <span>{config.emoji}</span>
-                <span>{config.label}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}

@@ -22,7 +22,7 @@ export function AssignTaskForm({ members, managerId }) {
         userId,
         title,
         priority,
-        status: 'planned',
+        status: 'waiting_review',
         assignedBy: managerId,
         date: new Date().toISOString().split('T')[0],
       });

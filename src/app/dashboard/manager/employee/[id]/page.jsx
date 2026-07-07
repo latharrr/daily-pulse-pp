@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { apiGetUsers, apiGetTasks, apiGetCheckins, apiGetCheckouts, apiGetActivityLog } from '@/lib/api';
 import { getToday, formatTime, formatRelativeTime } from '@/lib/utils';
-import { LIVE_STATUS_CONFIG, TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '@/lib/constants';
+import { TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '@/lib/constants';
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -51,7 +51,7 @@ export default async function EmployeeDetailPage({ params }) {
   const todayCheckout = checkouts.find(c => c.Date === today);
   const todayLogs = logs.filter(l => l.Timestamp.startsWith(today));
 
-  const statusConfig = LIVE_STATUS_CONFIG[employee.LiveStatus] || LIVE_STATUS_CONFIG.offline;
+
 
   // Group historical data by date
   const dateSet = new Set();
@@ -87,10 +87,6 @@ export default async function EmployeeDetailPage({ params }) {
                   {employee.Role} · @{employee.Username}
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm">
-              <span>{statusConfig.emoji}</span>
-              <span className="text-zinc-400">{statusConfig.label}</span>
             </div>
           </div>
 

@@ -263,13 +263,14 @@ function mockGetDashboard(data) {
   const members = teamUsers.map(u => {
     const isCheckedIn = checkedInIds.includes(u.UserID);
     const userTasks = todayTasks.filter(t => t.UserID === u.UserID);
-    const currentTask = userTasks.find(t => t.Status === 'in_progress') || userTasks[0] || null;
+    const currentTask = userTasks.find(t => t.Notes?.startsWith('[Focus]')) || userTasks[0] || null;
     return {
       ...u,
       checkedIn: isCheckedIn,
       currentTask: currentTask?.Title || null,
       currentTaskStatus: currentTask?.Status || null,
       currentTaskProgress: currentTask?.Progress || null,
+      currentTaskNotes: currentTask?.Notes || null,
       taskCount: userTasks.length,
       completedCount: userTasks.filter(t => t.Status === 'completed').length,
     };

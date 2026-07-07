@@ -51,23 +51,6 @@ export const PRIORITY_COLORS = {
   [PRIORITY.URGENT]: '#ef4444',
 };
 
-// ── Live Status ──
-export const LIVE_STATUS = {
-  WORKING: 'working',
-  MEETING: 'meeting',
-  BREAK: 'break',
-  BLOCKED: 'blocked',
-  OFFLINE: 'offline',
-};
-
-export const LIVE_STATUS_CONFIG = {
-  [LIVE_STATUS.WORKING]: { label: 'Working', emoji: '🟢' },
-  [LIVE_STATUS.MEETING]: { label: 'Meeting', emoji: '🤝' },
-  [LIVE_STATUS.BREAK]: { label: 'Break', emoji: '☕' },
-  [LIVE_STATUS.BLOCKED]: { label: 'Blocked', emoji: '⛔' },
-  [LIVE_STATUS.OFFLINE]: { label: 'Offline', emoji: '🏠' },
-};
-
 // ── Roles ──
 export const ROLES = {
   ADMIN: 'admin',
@@ -79,14 +62,9 @@ export const ROLES = {
 export const NAV_ITEMS = {
   [ROLES.EMPLOYEE]: [
     { label: 'Home', href: '/dashboard/employee', icon: 'home' },
-    { label: 'Check In', href: '/dashboard/employee/checkin', icon: 'sunrise' },
-    { label: 'Tasks', href: '/dashboard/employee/tasks', icon: 'list' },
-    { label: 'Check Out', href: '/dashboard/employee/checkout', icon: 'sunset' },
-    { label: 'History', href: '/dashboard/employee/history', icon: 'clock' },
   ],
   [ROLES.MANAGER]: [
     { label: 'Dashboard', href: '/dashboard/manager', icon: 'layout' },
-    { label: 'Team', href: '/dashboard/manager', icon: 'users' },
   ],
   [ROLES.ADMIN]: [
     { label: 'Dashboard', href: '/dashboard/admin', icon: 'shield' },

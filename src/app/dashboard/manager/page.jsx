@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { apiGetDashboard, apiGetActivityLog, apiGetUsers } from '@/lib/api';
+import { apiGetDashboard, apiGetActivityLog, apiGetUsers, apiGetTasks } from '@/lib/api';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { MissedCheckinAlert } from '@/components/dashboard/missed-checkin-alert';
+import { OverdueStrip } from '@/components/dashboard/overdue-strip';
 import { AssignTaskForm } from '@/components/dashboard/assign-task-form';
 import { TeamWall } from '@/components/dashboard/team-wall';
 import { DailyFeed } from '@/components/dashboard/daily-feed';
-import { getDayName } from '@/lib/utils';
+import { getDayName, getToday } from '@/lib/utils';
 
 export const metadata = {
   title: 'Manager Dashboard — Daily Pulse',
@@ -17,15 +18,23 @@ export default async function ManagerDashboardPage() {
   if (!session) redirect('/');
   if (session.role !== 'manager' && session.role !== 'admin') redirect('/');
 
-  const [dashResult, logsResult, usersResult] = await Promise.all([
+  const [dashResult, logsResult, usersResult, tasksResult] = await Promise.all([
     apiGetDashboard({ teamId: session.teamId }),
     apiGetActivityLog({}),
     apiGetUsers({ activeOnly: true }),
+    apiGetTasks({}),
   ]);
 
   const dashboard = dashResult.success ? dashResult.dashboard : null;
   const logs = logsResult.success ? logsResult.logs : [];
   const allUsers = usersResult.success ? usersResult.users : [];
+  const allTasks = tasksResult.success ? tasksResult.tasks : [];
+
+  const todayStr = getToday();
+  const overdueTasks = allTasks.filter(t => {
+    if (!t.Deadline) return false;
+    return t.Deadline < todayStr && !['completed', 'cancelled', 'postponed'].includes(t.Status);
+  });
 
   if (!dashboard) {
     return (
@@ -49,6 +58,9 @@ export default async function ManagerDashboardPage() {
             <p className="text-xs text-zinc-650">Manager</p>
           </div>
         </div>
+
+        {/* Overdue Strip */}
+        <OverdueStrip overdueTasks={overdueTasks} users={allUsers} />
 
         {/* KPI Strip — Row 1 */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

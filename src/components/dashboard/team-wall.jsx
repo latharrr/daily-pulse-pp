@@ -1,12 +1,10 @@
-'use client';
-
 import Link from 'next/link';
-import { LIVE_STATUS_CONFIG, TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '@/lib/constants';
+import { TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '@/lib/constants';
 
 export function TeamWall({ members }) {
   if (!members || members.length === 0) {
     return (
-      <div className="text-center py-12 text-zinc-600 text-sm">
+      <div className="text-center py-12 text-zinc-650 text-sm">
         No team members found
       </div>
     );
@@ -25,9 +23,9 @@ export function TeamWall({ members }) {
 }
 
 function MemberCard({ member }) {
-  const statusConfig = LIVE_STATUS_CONFIG[member.LiveStatus] || LIVE_STATUS_CONFIG.offline;
   const taskStatusLabel = member.currentTaskStatus ? TASK_STATUS_LABELS[member.currentTaskStatus] : null;
   const taskStatusColor = member.currentTaskStatus ? TASK_STATUS_COLORS[member.currentTaskStatus] : null;
+  const cleanNotes = member.currentTaskNotes?.replace('[Focus]', '').trim();
 
   return (
     <Link
@@ -39,14 +37,21 @@ function MemberCard({ member }) {
           <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-medium text-zinc-300">
             {member.Name?.charAt(0).toUpperCase()}
           </div>
-          <span className="font-medium text-zinc-50 text-sm">{member.Name}</span>
+          <span className="font-medium text-zinc-55 text-sm text-zinc-100">{member.Name}</span>
         </div>
-        <span className="text-sm" title={statusConfig.label}>{statusConfig.emoji}</span>
       </div>
 
       <div className="mb-2">
         {member.currentTask ? (
-          <p className="text-sm text-zinc-300 truncate">{member.currentTask}</p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-sm font-semibold text-zinc-350 text-white truncate max-w-[170px]">{member.currentTask}</span>
+              <span className="text-[9px] text-zinc-500 border border-zinc-850 px-1 rounded bg-zinc-950 font-medium">Focus</span>
+            </div>
+            {cleanNotes && (
+              <p className="text-[10px] text-zinc-500 italic truncate mt-0.5">“{cleanNotes}”</p>
+            )}
+          </div>
         ) : (
           <p className="text-sm text-zinc-600">—</p>
         )}
