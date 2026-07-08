@@ -112,7 +112,7 @@ export function DashboardShell({ session, children }) {
               </span>
             </div>
 
-            {/* Right: Avatar */}
+            {/* Right: Avatar + Logout */}
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-medium text-zinc-300">
                 {session.name
@@ -122,6 +122,15 @@ export function DashboardShell({ session, children }) {
                   .slice(0, 2)
                   .toUpperCase()}
               </div>
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  title="Log out"
+                  className="flex items-center justify-center w-7 h-7 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-colors duration-150"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </form>
             </div>
           </header>
 
