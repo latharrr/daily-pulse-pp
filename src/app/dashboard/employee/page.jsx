@@ -348,10 +348,9 @@ export default function EmployeeDashboardPage() {
     runPending(`carry-${task.TaskID}`, async () => {
       if (action === 'keep') {
         const { carryForwardAction } = await import('@/actions/checkin-actions');
-        const res = await carryForwardAction([task.TaskID], session.userId);
-        if (res.success) {
-          const tasksRes = await apiGetTasks({ userId: session.userId, date: getToday() });
-          if (tasksRes.success) setTasks(tasksRes.tasks);
+        const res = await carryForwardAction([task], session.userId);
+        if (res.success && res.tasks) {
+          setTasks(prev => [...prev, ...res.tasks]);
         }
       } else if (action === 'complete') {
         await apiUpdateTask({
@@ -381,17 +380,19 @@ export default function EmployeeDashboardPage() {
     runPending('startDay', async () => {
       const taskCount = tasks.length;
 
-      await Promise.all([
-        ...tasks.map(t =>
-          apiCreateTask({
-            userId: session.userId,
-            title: t.Title,
-            priority: t.Priority,
-            deadline: t.Deadline,
-            status: 'planned',
-            progress: 0,
-            assignedBy: session.userId,
-          })
+      const [createResults] = await Promise.all([
+        Promise.all(
+          tasks.map(t =>
+            apiCreateTask({
+              userId: session.userId,
+              title: t.Title,
+              priority: t.Priority,
+              deadline: t.Deadline,
+              status: 'planned',
+              progress: 0,
+              assignedBy: session.userId,
+            })
+          )
         ),
         apiSubmitCheckin({
           userId: session.userId,
@@ -407,8 +408,9 @@ export default function EmployeeDashboardPage() {
         details: `${taskCount} tasks planned`,
       }).catch(() => {});
 
-      const tasksRes = await apiGetTasks({ userId: session.userId, date: getToday() });
-      if (tasksRes.success) setTasks(tasksRes.tasks);
+      // Use the create results directly instead of a follow-up apiGetTasks
+      // round-trip -- every created task's full record is already here.
+      setTasks(createResults.filter(r => r.success).map(r => r.task));
 
       setIsCheckedIn(true);
       setViewState('active');

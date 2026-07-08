@@ -6,14 +6,12 @@ import { getToday, formatTime, formatRelativeTime } from '@/lib/utils';
 import { TASK_STATUS_LABELS, TASK_STATUS_COLORS, ROLE_LABELS } from '@/lib/constants';
 import { TaskNoteForm } from '@/components/manager/task-note-form';
 
-export async function generateMetadata({ params }) {
-  const { id } = await params;
-  const result = await apiGetUsers({});
-  const user = result.success ? result.users.find(u => u.UserID === id) : null;
-  return {
-    title: user ? `${user.Name} — Daily Pulse` : 'Team Member — Daily Pulse',
-  };
-}
+// A personalized title would need its own apiGetUsers() round-trip --
+// Next's fetch memoization only covers GET, and this backend is POST-only,
+// so it wouldn't be deduped against the page's own fetch below.
+export const metadata = {
+  title: 'Team Member — Daily Pulse',
+};
 
 export default async function EmployeeDetailPage({ params }) {
   const session = await getSession();
@@ -24,15 +22,17 @@ export default async function EmployeeDetailPage({ params }) {
   const today = getToday();
 
   const [usersResult, tasksResult, checkinsResult, checkoutsResult, logsResult] = await Promise.all([
-    apiGetUsers({}),
+    apiGetUsers({ userId: id }),
     apiGetTasks({ userId: id }),
     apiGetCheckins({ userId: id }),
     apiGetCheckouts({ userId: id }),
     apiGetActivityLog({ userId: id }),
   ]);
 
-  const allUsers = usersResult.success ? usersResult.users : [];
-  const employee = allUsers.find(u => u.UserID === id);
+  // .find() (not users[0]) so this is correct whether or not the deployed
+  // Code.gs already understands the userId filter -- an outdated backend
+  // will just ignore it and return every user instead of just this one.
+  const employee = usersResult.success ? usersResult.users.find(u => u.UserID === id) : null;
 
   if (!employee) {
     return (

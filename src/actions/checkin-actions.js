@@ -2,27 +2,20 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSession } from '@/lib/auth';
-import { apiCreateTask, apiGetTasks, apiLogActivity } from '@/lib/api';
+import { apiCreateTask, apiLogActivity } from '@/lib/api';
 import { getToday } from '@/lib/utils';
 
-export async function carryForwardAction(taskIds, userId) {
+// Takes the full task objects (not IDs) -- the caller already has them from
+// apiGetPendingTasks on initial load, so there's no need to re-fetch
+// yesterday's tasks here just to look them back up by ID.
+export async function carryForwardAction(tasksToCarry, userId) {
   const session = await getSession();
   if (!session) return { success: false, error: 'Not authenticated' };
 
   const uid = userId || session.userId;
   const today = getToday();
 
-  // Get yesterday's tasks to find the ones to carry forward
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-  const tasksResult = await apiGetTasks({ userId: uid, date: yesterdayStr });
-  if (!tasksResult.success) return { success: false, error: 'Failed to fetch tasks' };
-
-  const tasksToCarry = tasksResult.tasks.filter(t => taskIds.includes(t.TaskID));
-
-  await Promise.all(
+  const results = await Promise.all(
     tasksToCarry.map(task =>
       apiCreateTask({
         userId: uid,
@@ -47,5 +40,9 @@ export async function carryForwardAction(taskIds, userId) {
   }).catch(() => {});
 
   revalidatePath('/dashboard/employee');
-  return { success: true, count: tasksToCarry.length };
+  return {
+    success: true,
+    count: tasksToCarry.length,
+    tasks: results.filter(r => r.success).map(r => r.task),
+  };
 }

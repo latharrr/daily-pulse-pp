@@ -568,6 +568,7 @@
   function getUsers(data) {
     data = data || {};
     const filters = {};
+    if (data.userId) filters.UserID = data.userId;
     if (data.teamId) filters.TeamID = data.teamId;
     if (data.role) filters.Role = data.role;
 
