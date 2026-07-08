@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { getSessionSecretKey } from '@/lib/session-secret';
 
-const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'daily-pulse-dev-secret-key-change-in-prod'
-);
 const COOKIE_NAME = 'dp_session';
 
-export async function middleware(request) {
+export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
   // Only protect dashboard routes
@@ -22,7 +20,7 @@ export async function middleware(request) {
   }
 
   try {
-    await jwtVerify(token, SECRET);
+    await jwtVerify(token, getSessionSecretKey());
     return NextResponse.next();
   } catch {
     // Invalid or expired token — clear it and redirect

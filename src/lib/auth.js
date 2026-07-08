@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import { getSessionSecretKey } from '@/lib/session-secret';
 
-const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET || 'daily-pulse-dev-secret-key-change-in-prod');
 const COOKIE_NAME = 'dp_session';
 
 export async function createSession(user) {
@@ -15,7 +15,7 @@ export async function createSession(user) {
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('24h')
     .setIssuedAt()
-    .sign(SECRET);
+    .sign(getSessionSecretKey());
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
@@ -35,7 +35,7 @@ export async function getSession() {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSessionSecretKey());
     return payload;
   } catch {
     return null;

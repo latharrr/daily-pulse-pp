@@ -28,12 +28,6 @@ export const taskSchema = z.object({
   blockers: z.string().optional(),
 });
 
-export const checkinSchema = z.object({
-  tasks: z.array(taskSchema).min(1, 'Add at least one task'),
-  notes: z.string().optional(),
-  blockers: z.string().optional(),
-});
-
 export const checkoutSchema = z.object({
   postponeReason: z.string().optional(),
   tomorrowPlan: z.string().min(1, 'Tomorrow\'s plan is required'),

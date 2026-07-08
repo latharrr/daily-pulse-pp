@@ -62,6 +62,8 @@ export const ROLES = {
 export const NAV_ITEMS = {
   [ROLES.EMPLOYEE]: [
     { label: 'Home', href: '/dashboard/employee', icon: 'home' },
+    { label: 'Tasks', href: '/dashboard/employee/tasks', icon: 'list' },
+    { label: 'History', href: '/dashboard/employee/history', icon: 'clock' },
   ],
   [ROLES.MANAGER]: [
     { label: 'Dashboard', href: '/dashboard/manager', icon: 'layout' },
