@@ -1,19 +1,43 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { UserForm } from '@/components/admin/user-form';
 import { TeamForm } from '@/components/admin/team-form';
-import { toggleUserAction, resetPasswordAction } from '@/actions/admin-actions';
+import { toggleUserAction, resetPasswordAction, updateUserAction } from '@/actions/admin-actions';
+import { ROLE_LABELS } from '@/lib/constants';
 
 export function AdminView({ initialUsers, initialTeams }) {
+  const router = useRouter();
   const [users, setUsers] = useState(initialUsers);
   const [teams, setTeams] = useState(initialTeams);
   const [showUserForm, setShowUserForm] = useState(false);
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [resetPasswordUserId, setResetPasswordUserId] = useState(null);
   const [newPassword, setNewPassword] = useState('');
-  
+  const [editingUser, setEditingUser] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('employee');
+  const [editTeamId, setEditTeamId] = useState('');
+
   const [isPending, startTransition] = useTransition();
+
+  // router.refresh() re-renders the parent Server Component with fresh
+  // data, but doesn't remount this Client Component. Adjust state during
+  // render (React's documented escape hatch for this) rather than in an
+  // effect, since users/teams also carry local optimistic edits that a
+  // plain derived value would lose.
+  const [prevInitialUsers, setPrevInitialUsers] = useState(initialUsers);
+  if (initialUsers !== prevInitialUsers) {
+    setPrevInitialUsers(initialUsers);
+    setUsers(initialUsers);
+  }
+
+  const [prevInitialTeams, setPrevInitialTeams] = useState(initialTeams);
+  if (initialTeams !== prevInitialTeams) {
+    setPrevInitialTeams(initialTeams);
+    setTeams(initialTeams);
+  }
 
   const managers = users.filter(u => u.Role === 'manager');
   const teamMap = {};
@@ -25,6 +49,38 @@ export function AdminView({ initialUsers, initialTeams }) {
       const res = await toggleUserAction(userId, nextActive);
       if (res.success) {
         setUsers(prev => prev.map(u => u.UserID === userId ? { ...u, Active: nextActive } : u));
+      }
+    });
+  }
+
+  function openEditUser(user) {
+    setEditingUser(user);
+    setEditName(user.Name);
+    setEditRole(user.Role);
+    setEditTeamId(user.TeamID || '');
+  }
+
+  function handleEditUser(e) {
+    e.preventDefault();
+    if (!editName.trim()) return;
+
+    const userId = editingUser.UserID;
+    startTransition(async () => {
+      const res = await updateUserAction({
+        userId,
+        name: editName.trim(),
+        role: editRole,
+        teamId: editTeamId,
+      });
+      if (res.success) {
+        setUsers(prev =>
+          prev.map(u =>
+            u.UserID === userId ? { ...u, Name: editName.trim(), Role: editRole, TeamID: editTeamId } : u
+          )
+        );
+        setEditingUser(null);
+      } else {
+        alert(res.error || 'Failed to update user');
       }
     });
   }
@@ -48,7 +104,7 @@ export function AdminView({ initialUsers, initialTeams }) {
   return (
     <div className="space-y-8">
       {/* Users Section */}
-      <div className="space-y-3">
+      <div id="users" className="space-y-3 scroll-mt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Users</h2>
           <button
@@ -79,7 +135,7 @@ export function AdminView({ initialUsers, initialTeams }) {
                   <td className="px-4 py-3 text-zinc-400">@{user.Username}</td>
                   <td className="px-4 py-3">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-0.5 rounded border border-zinc-800">
-                      {user.Role}
+                      {ROLE_LABELS[user.Role] || user.Role}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-zinc-400">
@@ -92,6 +148,13 @@ export function AdminView({ initialUsers, initialTeams }) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditUser(user)}
+                      className="text-xs text-zinc-400 hover:text-white transition-colors"
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       onClick={() => setResetPasswordUserId(user.UserID)}
@@ -117,7 +180,7 @@ export function AdminView({ initialUsers, initialTeams }) {
       </div>
 
       {/* Teams Section */}
-      <div className="space-y-3">
+      <div id="teams" className="space-y-3 scroll-mt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Teams</h2>
           <button
@@ -161,7 +224,7 @@ export function AdminView({ initialUsers, initialTeams }) {
           teams={teams}
           onClose={() => {
             setShowUserForm(false);
-            window.location.reload();
+            router.refresh();
           }}
         />
       )}
@@ -171,9 +234,75 @@ export function AdminView({ initialUsers, initialTeams }) {
           managers={managers}
           onClose={() => {
             setShowTeamForm(false);
-            window.location.reload();
+            router.refresh();
           }}
         />
+      )}
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setEditingUser(null)} />
+          <div className="relative w-full max-w-sm mx-4 bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+            <h3 className="text-sm font-semibold text-zinc-50 mb-3">Edit {editingUser.Name}</h3>
+            <form onSubmit={handleEditUser} className="space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1.5">Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-50 focus:outline-none focus:border-zinc-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1.5">Role</label>
+                <select
+                  value={editRole}
+                  onChange={e => setEditRole(e.target.value)}
+                  disabled={editingUser.Role === 'admin'}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-50 focus:outline-none focus:border-zinc-600 disabled:opacity-50"
+                >
+                  <option value="employee">Team Member</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1.5">Team</label>
+                <select
+                  value={editTeamId}
+                  onChange={e => setEditTeamId(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-50 focus:outline-none focus:border-zinc-600"
+                >
+                  <option value="">No team</option>
+                  {teams.map(team => (
+                    <option key={team.TeamID} value={team.TeamID}>
+                      {team.TeamName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="flex-1 bg-white text-zinc-950 text-xs font-medium rounded-lg py-2 hover:bg-zinc-200 disabled:opacity-50"
+                >
+                  {isPending ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="bg-zinc-800 text-zinc-300 text-xs font-medium rounded-lg px-3 py-2 hover:bg-zinc-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Reset Password Modal */}

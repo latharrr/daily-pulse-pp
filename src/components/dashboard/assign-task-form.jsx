@@ -1,20 +1,29 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiCreateTask } from '@/lib/api';
 
 export function AssignTaskForm({ members, managerId }) {
-  const [selectedUserId, setSelectedUserId] = useState(members[0]?.UserID || '');
+  const router = useRouter();
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [priority, setPriority] = useState('medium');
   const [isPending, startTransition] = useTransition();
 
+  // Derived rather than synced via effect, so it stays correct if `members`
+  // changes after a refresh (e.g. it started empty and an admin just fixed
+  // a team assignment) without an extra render pass.
+  const effectiveUserId = members.some(m => m.UserID === selectedUserId)
+    ? selectedUserId
+    : members[0]?.UserID || '';
+
   function handleSubmit(e) {
     e.preventDefault();
-    if (!selectedUserId || !taskTitle.trim()) return;
+    if (!effectiveUserId || !taskTitle.trim()) return;
 
     const title = taskTitle.trim();
-    const userId = selectedUserId;
+    const userId = effectiveUserId;
     setTaskTitle('');
 
     startTransition(async () => {
@@ -29,7 +38,7 @@ export function AssignTaskForm({ members, managerId }) {
 
       if (res.success) {
         alert(`Assigned task "${title}" to ${members.find(m => m.UserID === userId)?.Name}`);
-        window.location.reload(); // Reload to update Team Wall and Feed
+        router.refresh(); // Soft refresh to update Team Wall and Feed
       } else {
         alert(res.error || 'Failed to assign task');
       }
@@ -41,12 +50,18 @@ export function AssignTaskForm({ members, managerId }) {
       <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
         Assign Task to Team
       </h2>
+      {members.length === 0 ? (
+        <p className="text-xs text-zinc-500">
+          No team members yet — assign teammates to your team in{' '}
+          <span className="text-zinc-300">Admin → Users → Edit</span>.
+        </p>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-[10px] text-zinc-500 uppercase">Assign To</label>
             <select
-              value={selectedUserId}
+              value={effectiveUserId}
               onChange={e => setSelectedUserId(e.target.value)}
               className="w-full h-8 px-2 text-xs text-white bg-[#09090b] border border-zinc-800 rounded-lg outline-none focus:border-zinc-700 transition-colors"
             >
@@ -93,6 +108,7 @@ export function AssignTaskForm({ members, managerId }) {
           </div>
         </div>
       </form>
+      )}
     </div>
   );
 }

@@ -15,7 +15,7 @@ import {
   LogOut,
   Building2,
 } from 'lucide-react';
-import { NAV_ITEMS } from '@/lib/constants';
+import { NAV_ITEMS, ROLE_LABELS } from '@/lib/constants';
 import { logoutAction } from '@/actions/auth-actions';
 
 // ── Session Context ──
@@ -95,7 +95,7 @@ export function DashboardShell({ session, children }) {
                 {session.name}
               </p>
               <p className="text-xs text-zinc-500 truncate">
-                {session.role}
+                {ROLE_LABELS[session.role] || session.role}
               </p>
             </div>
           </div>

@@ -58,6 +58,13 @@ export const ROLES = {
   EMPLOYEE: 'employee',
 };
 
+// Display labels only — the underlying role value/routes stay `employee`.
+export const ROLE_LABELS = {
+  [ROLES.ADMIN]: 'Admin',
+  [ROLES.MANAGER]: 'Manager',
+  [ROLES.EMPLOYEE]: 'Team Member',
+};
+
 // ── Navigation ──
 export const NAV_ITEMS = {
   [ROLES.EMPLOYEE]: [
@@ -70,7 +77,7 @@ export const NAV_ITEMS = {
   ],
   [ROLES.ADMIN]: [
     { label: 'Dashboard', href: '/dashboard/admin', icon: 'shield' },
-    { label: 'Users', href: '/dashboard/admin', icon: 'users' },
-    { label: 'Teams', href: '/dashboard/admin', icon: 'building' },
+    { label: 'Users', href: '/dashboard/admin#users', icon: 'users' },
+    { label: 'Teams', href: '/dashboard/admin#teams', icon: 'building' },
   ],
 };

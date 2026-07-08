@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   apiGetCheckins,
@@ -11,6 +11,7 @@ import {
   apiUpdateTask,
   apiCreateTask,
   apiGetPendingTasks,
+  apiLogActivity,
 } from '@/lib/api';
 import { getToday, getYesterday, formatDate } from '@/lib/utils';
 import { getSessionAction } from '@/actions/auth-actions';
@@ -47,7 +48,22 @@ export default function EmployeeDashboardPage() {
   // Step states
   const [viewState, setViewState] = useState('checkin'); // checkin, active, checkout, complete
 
-  const [isPending, startTransition] = useTransition();
+  // Per-action pending keys (e.g. 'toggle-<taskId>') so one slow action
+  // doesn't disable unrelated buttons elsewhere on the page.
+  const [pendingKeys, setPendingKeys] = useState(() => new Set());
+
+  function runPending(key, fn) {
+    setPendingKeys(prev => new Set(prev).add(key));
+    return Promise.resolve()
+      .then(fn)
+      .finally(() => {
+        setPendingKeys(prev => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      });
+  }
 
   // Load session & today's data
   useEffect(() => {
@@ -165,62 +181,51 @@ export default function EmployeeDashboardPage() {
       )
     );
 
-    startTransition(async () => {
-      await apiUpdateTask({
+    runPending(`toggle-${task.TaskID}`, () => {
+      apiLogActivity({
+        userId: session.userId,
+        action: 'Toggled task status',
+        details: `${task.Title} → ${nextStatus}`,
+      }).catch(() => {});
+
+      return apiUpdateTask({
         taskId: task.TaskID,
         status: nextStatus,
         progress: nextProgress,
         blockers: nextBlockers,
-      });
-
-      const { apiLogActivity } = await import('@/lib/api');
-      await apiLogActivity({
-        userId: session.userId,
-        action: 'Toggled task status',
-        details: `${task.Title} → ${nextStatus}`,
       });
     });
   }
 
   // Pin a task as focus
   function handlePinTask(task) {
-    startTransition(async () => {
-      // Update local state first
-      setTasks(prev =>
-        prev.map(t => {
-          let cleanNotes = t.Notes || '';
-          if (cleanNotes.startsWith('[Focus]')) {
-            cleanNotes = cleanNotes.replace('[Focus]', '').trim();
-          }
+    // Only two rows ever actually change: the task losing focus (if any)
+    // and the task gaining it — no need to touch every task.
+    const previousFocus = tasks.find(t => t.Notes?.startsWith('[Focus]'));
+    const cleanTargetNotes = (task.Notes || '').replace('[Focus]', '').trim();
+    const nextTargetNotes = `[Focus] ${cleanTargetNotes}`.trim();
+    const cleanPreviousNotes = previousFocus ? (previousFocus.Notes || '').replace('[Focus]', '').trim() : null;
 
-          if (t.TaskID === task.TaskID) {
-            return { ...t, Notes: `[Focus] ${cleanNotes}`.trim() };
-          }
-          return { ...t, Notes: cleanNotes };
-        })
-      );
+    setTasks(prev =>
+      prev.map(t => {
+        if (t.TaskID === task.TaskID) return { ...t, Notes: nextTargetNotes };
+        if (previousFocus && t.TaskID === previousFocus.TaskID) return { ...t, Notes: cleanPreviousNotes };
+        return t;
+      })
+    );
 
-      // Perform updates in database
-      for (const t of tasks) {
-        let cleanNotes = t.Notes || '';
-        if (cleanNotes.startsWith('[Focus]')) {
-          cleanNotes = cleanNotes.replace('[Focus]', '').trim();
-        }
-
-        const isTarget = t.TaskID === task.TaskID;
-        const nextNotes = isTarget ? `[Focus] ${cleanNotes}`.trim() : cleanNotes;
-
-        await apiUpdateTask({
-          taskId: t.TaskID,
-          notes: nextNotes,
-        });
+    runPending(`pin-${task.TaskID}`, () => {
+      const updates = [apiUpdateTask({ taskId: task.TaskID, notes: nextTargetNotes })];
+      if (previousFocus && previousFocus.TaskID !== task.TaskID) {
+        updates.push(apiUpdateTask({ taskId: previousFocus.TaskID, notes: cleanPreviousNotes }));
       }
+      return Promise.all(updates);
     });
   }
 
   // Accept a manager task assignment
   function handleAcceptAssignment(taskId) {
-    startTransition(async () => {
+    runPending(`accept-${taskId}`, async () => {
       const res = await apiUpdateTask({
         taskId,
         status: 'planned',
@@ -229,12 +234,11 @@ export default function EmployeeDashboardPage() {
       if (res.success) {
         setTasks(prev => prev.map(t => (t.TaskID === taskId ? { ...t, Status: 'planned' } : t)));
 
-        const { apiLogActivity } = await import('@/lib/api');
-        await apiLogActivity({
+        apiLogActivity({
           userId: session.userId,
           action: 'Accepted assignment',
           details: `Task ID: ${taskId}`,
-        });
+        }).catch(() => {});
       }
     });
   }
@@ -247,7 +251,7 @@ export default function EmployeeDashboardPage() {
     const taskId = decliningTaskId;
     const reason = declineReason.trim();
 
-    startTransition(async () => {
+    runPending(`decline-${taskId}`, async () => {
       const res = await apiUpdateTask({
         taskId,
         status: 'cancelled',
@@ -259,12 +263,11 @@ export default function EmployeeDashboardPage() {
         setDecliningTaskId(null);
         setDeclineReason('');
 
-        const { apiLogActivity } = await import('@/lib/api');
-        await apiLogActivity({
+        apiLogActivity({
           userId: session.userId,
           action: 'Declined assignment',
           details: `Reason: ${reason}`,
-        });
+        }).catch(() => {});
       }
     });
   }
@@ -279,12 +282,12 @@ export default function EmployeeDashboardPage() {
     );
     setEditingNotesTaskId(null);
 
-    startTransition(async () => {
-      await apiUpdateTask({
+    runPending(`note-${task.TaskID}`, () =>
+      apiUpdateTask({
         taskId: task.TaskID,
         notes: timestamped,
-      });
-    });
+      })
+    );
   }
 
   // Add task during planning checkin
@@ -323,7 +326,7 @@ export default function EmployeeDashboardPage() {
     const deadline = getDeadlineDate(newTaskDeadlineOption);
     setNewTaskTitle('');
 
-    startTransition(async () => {
+    runPending('quickAdd', async () => {
       const res = await apiCreateTask({
         userId: session.userId,
         title,
@@ -342,7 +345,7 @@ export default function EmployeeDashboardPage() {
 
   // Carry forward task actions
   function handleCarryAction(task, action) {
-    startTransition(async () => {
+    runPending(`carry-${task.TaskID}`, async () => {
       if (action === 'keep') {
         const { carryForwardAction } = await import('@/actions/checkin-actions');
         const res = await carryForwardAction([task.TaskID], session.userId);
@@ -375,32 +378,34 @@ export default function EmployeeDashboardPage() {
       return;
     }
 
-    startTransition(async () => {
-      for (const t of tasks) {
-        await apiCreateTask({
+    runPending('startDay', async () => {
+      const taskCount = tasks.length;
+
+      await Promise.all([
+        ...tasks.map(t =>
+          apiCreateTask({
+            userId: session.userId,
+            title: t.Title,
+            priority: t.Priority,
+            deadline: t.Deadline,
+            status: 'planned',
+            progress: 0,
+            assignedBy: session.userId,
+          })
+        ),
+        apiSubmitCheckin({
           userId: session.userId,
-          title: t.Title,
-          priority: t.Priority,
-          deadline: t.Deadline,
-          status: 'planned',
-          progress: 0,
-          assignedBy: session.userId,
-        });
-      }
+          taskCount,
+          notes: '',
+          blockers: '',
+        }),
+      ]);
 
-      await apiSubmitCheckin({
-        userId: session.userId,
-        taskCount: tasks.length,
-        notes: '',
-        blockers: '',
-      });
-
-      const { apiLogActivity } = await import('@/lib/api');
-      await apiLogActivity({
+      apiLogActivity({
         userId: session.userId,
         action: 'Checked in',
-        details: `${tasks.length} tasks planned`,
-      });
+        details: `${taskCount} tasks planned`,
+      }).catch(() => {});
 
       const tasksRes = await apiGetTasks({ userId: session.userId, date: getToday() });
       if (tasksRes.success) setTasks(tasksRes.tasks);
@@ -412,7 +417,7 @@ export default function EmployeeDashboardPage() {
 
   // End of Day Submission (Simplified Checkout)
   function handleEndDay() {
-    startTransition(async () => {
+    runPending('endDay', async () => {
       const completedCount = tasks.filter(t => t.Status === 'completed').length;
       const pendingCount = tasks.filter(t => ['planned', 'in_progress'].includes(t.Status)).length;
       const postponedCount = tasks.filter(t => ['postponed', 'blocked'].includes(t.Status)).length;
@@ -427,12 +432,11 @@ export default function EmployeeDashboardPage() {
         notes: checkoutNotes.trim(),
       });
 
-      const { apiLogActivity } = await import('@/lib/api');
-      await apiLogActivity({
+      apiLogActivity({
         userId: session.userId,
         action: 'Checked out',
         details: `${completedCount} completed, ${pendingCount} pending`,
-      });
+      }).catch(() => {});
 
       setIsCheckedOut(true);
       setViewState('complete');
@@ -477,14 +481,14 @@ export default function EmployeeDashboardPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleAcceptAssignment(task.TaskID)}
-                      disabled={isPending}
+                      disabled={pendingKeys.has(`accept-${task.TaskID}`)}
                       className="flex-1 h-8 bg-white text-zinc-950 text-xs font-semibold rounded hover:bg-zinc-250 transition-colors"
                     >
                       Accept
                     </button>
                     <button
                       onClick={() => setDecliningTaskId(task.TaskID)}
-                      disabled={isPending}
+                      disabled={pendingKeys.has(`accept-${task.TaskID}`)}
                       className="flex-1 h-8 bg-zinc-850 text-red-400 text-xs font-semibold rounded hover:bg-zinc-800 transition-colors border border-zinc-800"
                     >
                       Decline
@@ -613,7 +617,7 @@ export default function EmployeeDashboardPage() {
 
             <button
               onClick={handleStartDay}
-              disabled={isPending || tasks.length === 0}
+              disabled={pendingKeys.has('startDay') || tasks.length === 0}
               className="w-full h-9 bg-white text-zinc-950 text-sm font-semibold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50"
             >
               Start Day
@@ -648,7 +652,7 @@ export default function EmployeeDashboardPage() {
 
                 <button
                   type="submit"
-                  disabled={isPending}
+                  disabled={pendingKeys.has('quickAdd')}
                   className="h-8 px-4 bg-white text-zinc-950 text-xs font-semibold rounded hover:bg-zinc-250"
                 >
                   Add Task
@@ -839,7 +843,7 @@ export default function EmployeeDashboardPage() {
               <button
                 type="button"
                 onClick={handleEndDay}
-                disabled={isPending || !checkoutTomorrowPlan.trim()}
+                disabled={pendingKeys.has('endDay') || !checkoutTomorrowPlan.trim()}
                 className="flex-1 h-9 bg-white text-zinc-950 text-sm font-semibold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50"
               >
                 Submit checkout
@@ -888,7 +892,7 @@ export default function EmployeeDashboardPage() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  disabled={isPending}
+                  disabled={pendingKeys.has(`decline-${decliningTaskId}`)}
                   className="flex-1 h-9 bg-white text-zinc-950 text-xs font-semibold rounded hover:bg-zinc-200 transition-colors"
                 >
                   Confirm Decline

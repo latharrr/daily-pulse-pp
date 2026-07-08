@@ -343,6 +343,21 @@
     return sheet;
   }
 
+  // Sheets auto-detects "yyyy-MM-dd"-shaped strings on write and silently
+  // stores them as Date cells. Reading them back then yields a Date object
+  // (which JSON-serializes as a full UTC ISO datetime, shifted by the
+  // spreadsheet's timezone) instead of the original bare date string --
+  // breaking every `=== 'yyyy-MM-dd'` comparison (today's tasks, checkin
+  // dedup, dashboard "checked in" counts, carry-forward). Reconstruct the
+  // original bare date using the spreadsheet's own timezone so the shift
+  // cancels out.
+  function normalizeCellValue(header, value) {
+    if (value instanceof Date && (header === 'Date' || header === 'Deadline')) {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+    return value;
+  }
+
   function readAll(sheetName, options) {
     options = options || {};
     const sheet = getSheet(sheetName);
@@ -352,7 +367,7 @@
     const rows = values.slice(1)
       .map(function (row, index) {
         const obj = { _rowNumber: index + 2 };
-        headers.forEach(function (h, i) { obj[h] = row[i]; });
+        headers.forEach(function (h, i) { obj[h] = normalizeCellValue(h, row[i]); });
         return obj;
       })
       .filter(function (row) {
@@ -454,7 +469,7 @@
     const headers = HEADERS[sheetName];
     const values = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
     const obj = {};
-    headers.forEach(function (h, i) { obj[h] = values[i]; });
+    headers.forEach(function (h, i) { obj[h] = normalizeCellValue(h, values[i]); });
     return obj;
   }
 
@@ -1036,7 +1051,9 @@
         return t.Notes && String(t.Notes).indexOf('[Focus]') === 0;
       }) || userTasks[0] || null;
 
-      return {
+      // Flattened (not nested under `user`) -- the frontend (AssignTaskForm,
+      // TeamWall) reads m.UserID / m.Name directly on each member.
+      return Object.assign({}, sanitizeUser(u), {
         checkedIn: isCheckedIn,
         currentTask: currentTask ? currentTask.Title : null,
         currentTaskStatus: currentTask ? currentTask.Status : null,
@@ -1047,8 +1064,7 @@
         pendingCount: userTasks.filter(function (t) {
           return ['planned', 'in_progress', 'waiting_review'].indexOf(t.Status) !== -1;
         }).length,
-        user: sanitizeUser(u),
-      };
+      });
     });
 
     return buildSuccessResponse({

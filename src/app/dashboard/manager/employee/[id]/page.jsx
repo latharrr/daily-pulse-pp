@@ -3,14 +3,15 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { apiGetUsers, apiGetTasks, apiGetCheckins, apiGetCheckouts, apiGetActivityLog } from '@/lib/api';
 import { getToday, formatTime, formatRelativeTime } from '@/lib/utils';
-import { TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '@/lib/constants';
+import { TASK_STATUS_LABELS, TASK_STATUS_COLORS, ROLE_LABELS } from '@/lib/constants';
+import { TaskNoteForm } from '@/components/manager/task-note-form';
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
   const result = await apiGetUsers({});
   const user = result.success ? result.users.find(u => u.UserID === id) : null;
   return {
-    title: user ? `${user.Name} — Daily Pulse` : 'Employee — Daily Pulse',
+    title: user ? `${user.Name} — Daily Pulse` : 'Team Member — Daily Pulse',
   };
 }
 
@@ -36,7 +37,7 @@ export default async function EmployeeDetailPage({ params }) {
   if (!employee) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <p className="text-zinc-500 text-sm">Employee not found</p>
+        <p className="text-zinc-500 text-sm">Team member not found</p>
       </div>
     );
   }
@@ -84,7 +85,7 @@ export default async function EmployeeDetailPage({ params }) {
               <div>
                 <h1 className="text-lg font-semibold text-zinc-50">{employee.Name}</h1>
                 <p className="text-sm text-zinc-500">
-                  {employee.Role} · @{employee.Username}
+                  {ROLE_LABELS[employee.Role] || employee.Role} · @{employee.Username}
                 </p>
               </div>
             </div>
@@ -171,6 +172,8 @@ export default async function EmployeeDetailPage({ params }) {
                         Blocker: {task.Blockers}
                       </div>
                     )}
+
+                    <TaskNoteForm task={task} managerId={session.userId} />
                   </div>
                 );
               })}

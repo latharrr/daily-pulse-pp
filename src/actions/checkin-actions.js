@@ -22,27 +22,29 @@ export async function carryForwardAction(taskIds, userId) {
 
   const tasksToCarry = tasksResult.tasks.filter(t => taskIds.includes(t.TaskID));
 
-  for (const task of tasksToCarry) {
-    await apiCreateTask({
-      userId: uid,
-      date: today,
-      title: task.Title,
-      priority: task.Priority,
-      deadline: task.Deadline || '',
-      estimatedHours: task.EstimatedHours || 0,
-      status: 'planned',
-      progress: 0,
-      notes: task.Notes || '',
-      blockers: task.Blockers || '',
-      carriedForward: true,
-    });
-  }
+  await Promise.all(
+    tasksToCarry.map(task =>
+      apiCreateTask({
+        userId: uid,
+        date: today,
+        title: task.Title,
+        priority: task.Priority,
+        deadline: task.Deadline || '',
+        estimatedHours: task.EstimatedHours || 0,
+        status: 'planned',
+        progress: 0,
+        notes: task.Notes || '',
+        blockers: task.Blockers || '',
+        carriedForward: true,
+      })
+    )
+  );
 
-  await apiLogActivity({
+  apiLogActivity({
     userId: uid,
     action: 'Carried forward',
     details: `${tasksToCarry.length} task${tasksToCarry.length === 1 ? '' : 's'} from yesterday`,
-  });
+  }).catch(() => {});
 
   revalidatePath('/dashboard/employee');
   return { success: true, count: tasksToCarry.length };

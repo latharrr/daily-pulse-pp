@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useActionState } from 'react';
+import { useEffect, useActionState } from 'react';
 import { createUserAction } from '@/actions/admin-actions';
 
 const initialState = { success: false, error: null };
@@ -8,9 +8,9 @@ const initialState = { success: false, error: null };
 export function UserForm({ teams, onClose }) {
   const [state, formAction, isPending] = useActionState(createUserAction, initialState);
 
-  if (state.success) {
-    if (onClose) onClose();
-  }
+  useEffect(() => {
+    if (state.success && onClose) onClose();
+  }, [state.success, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -88,7 +88,7 @@ export function UserForm({ teams, onClose }) {
               defaultValue="employee"
               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-50 focus:outline-none focus:border-zinc-600"
             >
-              <option value="employee">Employee</option>
+              <option value="employee">Team Member</option>
               <option value="manager">Manager</option>
               <option value="admin">Admin</option>
             </select>

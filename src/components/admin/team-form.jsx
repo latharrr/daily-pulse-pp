@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useEffect, useActionState } from 'react';
 import { createTeamAction } from '@/actions/admin-actions';
 
 const initialState = { success: false, error: null };
@@ -8,9 +8,9 @@ const initialState = { success: false, error: null };
 export function TeamForm({ managers, onClose }) {
   const [state, formAction, isPending] = useActionState(createTeamAction, initialState);
 
-  if (state.success) {
-    if (onClose) onClose();
-  }
+  useEffect(() => {
+    if (state.success && onClose) onClose();
+  }, [state.success, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">

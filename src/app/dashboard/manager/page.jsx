@@ -26,9 +26,9 @@ export default async function ManagerDashboardPage() {
   ]);
 
   const dashboard = dashResult.success ? dashResult.dashboard : null;
-  const logs = logsResult.success ? logsResult.logs : [];
-  const allUsers = usersResult.success ? usersResult.users : [];
-  const allTasks = tasksResult.success ? tasksResult.tasks : [];
+  const logs = logsResult.success ? logsResult.logs || [] : [];
+  const allUsers = usersResult.success ? usersResult.users || [] : [];
+  const allTasks = tasksResult.success ? tasksResult.tasks || [] : [];
 
   const todayStr = getToday();
   const overdueTasks = allTasks.filter(t => {

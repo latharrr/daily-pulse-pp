@@ -1,6 +1,7 @@
 'use server';
 
 import bcrypt from 'bcryptjs';
+import { revalidatePath } from 'next/cache';
 import { taskSchema, updateTaskSchema, checkoutSchema } from '@/lib/validators';
 
 // ============================================
@@ -34,6 +35,14 @@ function sanitizeUser(user) {
   if (!user) return user;
   const { PasswordHash, ...safe } = user;
   return safe;
+}
+
+// Employee task/checkin/checkout writes happen outside the manager's and
+// admin's own requests, so their dashboards need an explicit nudge to
+// refetch — otherwise the router cache keeps serving stale data.
+function revalidateDashboards() {
+  revalidatePath('/dashboard/manager');
+  revalidatePath('/dashboard/admin');
 }
 
 // ── Exported API ──
@@ -97,7 +106,9 @@ export async function apiCreateTask(data) {
     return { success: false, error: firstError || 'Invalid task data' };
   }
 
-  return callAPI('createTask', data);
+  const result = await callAPI('createTask', data);
+  if (result.success) revalidateDashboards();
+  return result;
 }
 
 export async function apiUpdateTask(data) {
@@ -109,7 +120,9 @@ export async function apiUpdateTask(data) {
     return { success: false, error: firstError || 'Invalid task data' };
   }
 
-  return callAPI('updateTask', data);
+  const result = await callAPI('updateTask', data);
+  if (result.success) revalidateDashboards();
+  return result;
 }
 
 export async function apiGetPendingTasks(userId) {
@@ -117,7 +130,9 @@ export async function apiGetPendingTasks(userId) {
 }
 
 export async function apiSubmitCheckin(data) {
-  return callAPI('submitCheckin', data);
+  const result = await callAPI('submitCheckin', data);
+  if (result.success) revalidateDashboards();
+  return result;
 }
 
 export async function apiGetCheckins(filters = {}) {
@@ -133,7 +148,9 @@ export async function apiSubmitCheckout(data) {
     return { success: false, error: firstError || 'Invalid checkout data' };
   }
 
-  return callAPI('submitCheckout', data);
+  const result = await callAPI('submitCheckout', data);
+  if (result.success) revalidateDashboards();
+  return result;
 }
 
 export async function apiGetCheckouts(filters = {}) {

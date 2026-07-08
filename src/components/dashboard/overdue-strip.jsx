@@ -39,7 +39,7 @@ export function OverdueStrip({ overdueTasks, users }) {
         <div className="border-t border-zinc-800 bg-zinc-950/80 p-4 space-y-4 text-xs max-h-60 overflow-y-auto">
           {Object.entries(grouped).map(([userId, tasks]) => {
             const user = userMap[userId];
-            const userName = user?.Name || 'Unknown Employee';
+            const userName = user?.Name || 'Unknown Team Member';
             return (
               <div key={userId} className="space-y-1.5">
                 <p className="font-bold text-zinc-300">{userName}</p>
